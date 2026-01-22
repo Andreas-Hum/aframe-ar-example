@@ -1,82 +1,71 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Winter AR Spawner • A-Frame</title>
-    <meta name="description" content="Winter AR Spawner • A-Frame">
-    <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
-    <script>
-      // Component to handle shadow planes (from original code)
+<script>
+      // Component to handle shadow planes (keeps shadow on the floor)
       AFRAME.registerComponent('follow-shadow', {
         schema: {type: 'selector'},
         init() {this.el.object3D.renderOrder = -1;},
         tick() {
           if (this.data) {
             this.el.object3D.position.copy(this.data.object3D.position);
-            this.el.object3D.position.y-=0.001; 
+            this.el.object3D.position.y -= 0.001; // Slightly below object to prevent flickering
           }
         }
       });
 
-      // BONUS TASK COMPONENT: Spawn object on tap
+      // FIXED SPAWN COMPONENT
       AFRAME.registerComponent('spawn-in-ar', {
         schema: {
-          template: {type: 'selector'} // The object to clone (our snowman)
+          template: {type: 'selector'}
         },
         init: function() {
-          // Listen for the WebXR 'select' event (tap on screen)
+          // Listen for the tap event
           this.el.sceneEl.addEventListener('select', () => {
             const template = this.data.template;
-            
-            // Safety check: only spawn if the cursor is visible (tracking works)
-            if (!template || !template.object3D.visible) return;
 
-            // 1. Clone the template node
+            // 1. Safety Check: Only spawn if the ghost is currently visible
+            if (!template || !template.object3D.visible) {
+                console.log("Ghost not visible, skipping spawn.");
+                return;
+            }
+
+            // 2. Clone the HTML structure
             const newObject = template.cloneNode(true);
+            newObject.removeAttribute('id'); // Remove ID to avoid duplicates
 
-            // 2. Remove specific attributes to make it a static independent object
-            newObject.removeAttribute('id');           // Avoid duplicate IDs
-            newObject.removeAttribute('ar-hit-test');  // Stop it from tracking AR hits
-            
-            // 3. Lock in the position/rotation from the template's current state
-            // We use object3D to get the exact world coordinates from the AR system
-            newObject.setAttribute('position', template.object3D.position);
-            newObject.setAttribute('rotation', template.object3D.rotation);
-            newObject.setAttribute('scale', template.object3D.scale);
-            
-            // 4. Append to the scene
+            // 3. LOCK THE TRANSFORM (The Fix)
+            // We cannot pass the object3D.position directly. We must extract x, y, z.
+            const currentPos = template.object3D.position;
+            const currentRot = template.object3D.rotation;
+            const currentScale = template.object3D.scale;
+
+            // Apply Position
+            newObject.setAttribute('position', {
+                x: currentPos.x,
+                y: currentPos.y,
+                z: currentPos.z
+            });
+
+            // Apply Rotation (Convert Radians to Degrees!)
+            newObject.setAttribute('rotation', {
+                x: THREE.MathUtils.radToDeg(currentRot.x),
+                y: THREE.MathUtils.radToDeg(currentRot.y),
+                z: THREE.MathUtils.radToDeg(currentRot.z)
+            });
+
+            // Apply Scale
+            newObject.setAttribute('scale', {
+                x: currentScale.x,
+                y: currentScale.y,
+                z: currentScale.z
+            });
+
+            // 4. Ensure it is visible
+            newObject.setAttribute('visible', 'true');
+
+            // 5. Add to scene
             this.el.sceneEl.appendChild(newObject);
+            
+            console.log("Object Spawned!"); // Debug message in console
           });
         }
       });
     </script>
-  </head>
-  <body>
-    <a-scene
-      reflection="directionalLight: a-light[type=directional]"
-      ar-hit-test="target: #objects;"
-      spawn-in-ar="template: #objects"
-      renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
-      shadow="type: pcfsoft"
-      xr-mode-ui="XRMode: xr"
-    >
-      <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#objects"></a-light>
-      <a-camera position="0 0.4 1" wasd-controls="acceleration:10;"></a-camera>
-
-      <a-entity id="objects" scale="0.2 0.2 0.2" position="0 0 -1" shadow>
-        
-        <a-sphere position="0 0.5 0" radius="0.5" color="#FFFFFF" shadow></a-sphere>
-        <a-sphere position="0 1.25 0" radius="0.35" color="#FFFFFF" shadow></a-sphere>
-        <a-sphere position="0 1.8 0" radius="0.25" color="#FFFFFF" shadow></a-sphere>
-        <a-sphere position="-0.1 1.85 0.2" radius="0.03" color="#000000"></a-sphere>
-        <a-sphere position="0.1 1.85 0.2" radius="0.03" color="#000000"></a-sphere>
-        <a-cone position="0 1.8 0.25" rotation="90 0 0" radius-bottom="0.04" height="0.2" color="orange" shadow></a-cone>
-        <a-cylinder position="0 2.1 0" radius="0.2" height="0.3" color="#333333" shadow></a-cylinder>
-
-      </a-entity>
-
-      <a-plane follow-shadow="#objects" material="shader:shadow" shadow="cast:false;" rotation="-90 0 0" width="2" height="2"></a-plane>
-      <a-sky color="#ECECEC" hide-on-enter-ar></a-sky>
-    </a-scene>
-  </body>
-</html>
