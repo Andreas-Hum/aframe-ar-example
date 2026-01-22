@@ -16,7 +16,7 @@
         justify-content: center;
         gap: 20px;
         z-index: 10;
-        pointer-events: none; /* Let touches pass through to scene unless hitting buttons */
+        pointer-events: none;
       }
       .btn {
         pointer-events: auto;
@@ -37,10 +37,8 @@
     </style>
 
     <script>
-      // 1. STATE MANAGEMENT
       let currentItem = 'tree-mixin'; 
 
-      // 2. SHADOW HELPER
       AFRAME.registerComponent('follow-shadow', {
         schema: {type: 'selector'},
         init() {this.el.object3D.renderOrder = -1;},
@@ -52,28 +50,19 @@
         }
       });
 
-      // 3. SPAWNER LOGIC
       AFRAME.registerComponent('ar-spawner', {
         init: function() {
           this.el.sceneEl.addEventListener('click', () => {
-            // Create the new object
             const newEntity = document.createElement('a-entity');
-            
-            // Apply the selected mixin (Tree or Snowman)
             newEntity.setAttribute('mixin', currentItem);
-
-            // 1. Position: Copy cursor position
             newEntity.object3D.position.copy(this.el.object3D.position);
 
-            // 2. Rotation: Randomize Y rotation (0 to 360 degrees)
+            // FIX IS HERE: Changed THREE.Math to THREE.MathUtils
             const randomY = Math.random() * 360;
-            newEntity.object3D.rotation.set(0, THREE.Math.degToRad(randomY), 0);
+            newEntity.object3D.rotation.set(0, THREE.MathUtils.degToRad(randomY), 0);
 
-            // 3. Scale: Randomize size slightly (0.8x to 1.2x)
             const randomScale = 0.8 + Math.random() * 0.4;
-            // We set the "to" variable for the animation, not the object directly yet
             
-            // 4. Animation: "Pop" effect (elastic ease out)
             newEntity.setAttribute('animation', {
               property: 'scale',
               from: '0 0 0',
@@ -88,15 +77,10 @@
         }
       });
 
-      // 4. UI LOGIC
       function selectItem(item, btnId) {
         currentItem = item;
-        
-        // Update Ghost Visuals
         const cursor = document.getElementById('cursor-visuals');
         cursor.setAttribute('mixin', item);
-        
-        // Reset button styles
         document.querySelectorAll('.btn').forEach(b => b.classList.remove('selected'));
         document.getElementById(btnId).classList.add('selected');
       }
